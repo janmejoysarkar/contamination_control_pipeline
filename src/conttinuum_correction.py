@@ -53,6 +53,9 @@ def fd_correction(file):
         if not QUIET: print('FD saved:', filename)
 
 def roi_correction(file):
+    '''
+    Applies correction to RoI images
+    '''
     roi_map= Map(file)
     col, row= roi_map.meta['X1'], roi_map.meta['Y1']
     s_row, s_col= roi_map.meta['NAXIS1'], roi_map.meta['NAXIS2']
@@ -80,7 +83,7 @@ if __name__=='__main__':
         r1= pool.map_async(fd_correction, fd_files)
         if roi_files: # Check if roi_files is empty. Will run if not empty.
             r2= pool.map_async(roi_correction, roi_files)
-            r1.get()
+            r1.get() # get() stops process if error is received. Use wait() for continued run, with errors.
             r2.get()
         else:
             r1.get()

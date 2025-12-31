@@ -18,6 +18,7 @@ import os
 import sys
 import glob
 import numpy as np
+import multiprocessing
 import astropy.units as u
 from astropy.io import fits
 import matplotlib.pyplot as plt
@@ -41,11 +42,12 @@ def get_submap(ref_img):
 	ref_submap = ref_img.submap(rectangle) #bottom_left, top_right=top_right)
 	return ref_submap
 
-def clean_line_channels(files, template_map):
-    """
-    - To process images taken in the line channels
-    NB03, NB04 and NB08
-    """
+def makeflat(files):
+    '''
+    Give a list of images spanning not more than 15-20 mins in time.
+    Ideal for cleaning 2k NB03 images.
+    '''
+    template_map= Map(files[0])
     ref_submap = get_submap(template_map)
     ref_cdel=ref_submap.meta['CDELT1']
     seq = Map(files, sequence=True)
@@ -56,94 +58,29 @@ def clean_line_channels(files, template_map):
     aligned_map_arr= np.stack([m.data for m in aligned_maps], axis=0)
     med= np.median(aligned_map_arr, axis=0)
     flat_frame= template_map.data/med
-    corrected_img_data= template_map.data/flat_frame
+    return flat_frame
+
+def fd_correction(file):
+    """
+    - To process images taken in the line channels
+    NB03, NB04 and NB08
+    """
+    m= Map(file)
+    corrected_img_data= m.data/flat_frame
     corrected_img_data= np.nan_to_num(corrected_img_data, nan=0.0)
-    corrected_map= Map(corrected_img_data, template_map.meta)
-    SAVE and savefiles(template_map.meta['F_NAME'], corrected_map)
-    return (corrected_map, flat_frame)
-
-def clean_contt_channels(files):
-    """
-    - Process the images to generate a flat field of 
-    the contaminant patterns.
-    - Remove the contaminant patterns from the images.
-    INPUT:
-        files: list of filepaths
-        tp: template filepath
-    OUTPUT:
-        corrected_image_map: SunPy map of the corrected data.
-        flat_field: contamination flat field.
-    """
-    seq = Map(files, sequence=True)
-    map_arr= np.stack([m.data for m in seq], axis=0)
-    raw_med= np.median(map_arr, axis=0)
-    x_arry=[template_map.meta['CRPIX1']-m.meta['CRPIX1'] for i, m in enumerate(seq)]
-    y_arry=[template_map.meta['CRPIX2']-m.meta['CRPIX2'] for i, m in enumerate(seq)]
-    aligned_maps = apply_shifts(seq, yshift= y_arry * u.pixel, xshift=x_arry * u.pixel, clip=False)
-    aligned_imgs= np.stack([m.data for m in aligned_maps], axis=0)
-    med= np.median(aligned_imgs, axis=0)
-    med[med==0]=1
-    flat_frame= raw_med/med
-    for i, m in enumerate(seq):
-        corrected_img_data= m.data/flat_frame
-        corrected_img_data= np.nan_to_num(corrected_img_data, nan=0.0)
-        corrected_map= Map(corrected_img_data, m.meta)
-        SAVE and savefiles(m.meta['F_NAME'], corrected_map)
-    return (corrected_map, flat_frame)
-
-def visualize(map1, flatframe, map3):
-    """
-    DESCRIPTION:
-    See a preview of the individual images.
-    INPUT:
-    - map1, map3: Sunpy Map
-    - flatframe: numpy 2D array
-    RETURNS: Visualization.
-    """
-    fig, ax= plt.subplots(1,3, sharex=True, sharey=True)
-    im0= ax[0].imshow(map1.data, origin='lower', vmin=VMN, vmax=VMX)
-    ax[0].set_title('Raw')
-    plt.colorbar(im0, ax=ax[0])
-    im1= ax[1].imshow(flatframe, origin='lower', vmin=VMN, vmax=1.2)
-    ax[1].set_title('Calibration frame')
-    plt.colorbar(im1, ax=ax[1])
-    im2= ax[2].imshow(map3.data, origin='lower', vmin=VMN, vmax=VMX)
-    ax[2].set_title('Corrected map')
-    plt.colorbar(im2, ax=ax[2])
-    plt.show()
-
-def savefiles(file, corrected_image_map, FLAT=False):
-    img_savepath= os.path.join(project_path, f'products/full_disk/{file}')
-    corrected_image_map.save(img_savepath, overwrite=True)
-    print("saved as", file)
-    if FLAT:
-        flat_savepath= os.path.join(project_path, f'data/interim/flat_{os.path.basename(file)}')
-        fits.writeto(flat_savepath, flat_field, overwrite=True)
-        print("Flat frame saved as", flat_savepath)
+    corrected_img_data[corrected_img_data> 6e4]=0
+    corrected_map= Map(corrected_img_data, m.meta)
+    if SAVE:
+        filename= m.meta['F_NAME']
+        img_savepath= os.path.join(project_path, f'products/full_disk/{filename}')
+        corrected_map.save(img_savepath, overwrite=True)
+        if not QUIET: print('FD saved:', filename)
 
 if __name__=='__main__':
     SAVE= True # Toggle to save corrected image
-    PLOT= True # Toggle to turn off visualization
-    LIM= 20 # Max no. of images to be used for the stack and processed
+    QUIET= False
     project_path= os.path.abspath('..')
-    files= sorted(glob.glob(os.path.join(project_path, f'data/raw/full_disk/*.fits'))) # Filepath for full disk images
-    template_file_index= len(files)//2
-    if len(files)>LIM: # Stop execution if num of files is more than LIM
-        print(f'Stopping execution. \nMore than {LIM} files queued')
-        sys.exit()
-    template_map= Map(files[template_file_index]) #Middle of the stack taken as reference
-    ftr_name= template_map.meta['FTR_NAME']
-    if ftr_name not in ['NB03','NB04','NB08']:
-        print(os.path.basename(files[template_file_index]))
-        corrected_image_map, flat_field= clean_contt_channels(files)
-    elif ftr_name in ['NB03','NB04','NB08']:  
-        print(os.path.basename(files[template_file_index]))
-        for file in files: # use each image as template for better alignment
-            template_map=Map(file)
-            corrected_image_map, flat_field= clean_line_channels(files, template_map)
-    else:
-       print('Check file metadata. FTR_NAME mismatch')
-    if PLOT:
-        VMN= 0
-        VMX= 1e4
-        visualize(Map(files[-1]), flat_field, corrected_image_map)
+    fd_files= sorted(glob.glob(os.path.join(project_path, f'data/raw/full_disk/*.fits'))) # Filepath for full disk images
+    flat_frame= makeflat(fd_files[:15]) # Make flat file. Global variable
+    with multiprocessing.Pool() as pool:
+        pool.map(fd_correction, fd_files)
