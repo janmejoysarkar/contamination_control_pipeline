@@ -23,6 +23,9 @@ def makeflat(files):
     '''
     Makes flat frame from a series of images
     '''
+    m= Map(files[0])
+    if ('enable' in m.meta['BIN_EN']):
+        files= files[:10]
     seq = Map(files, sequence=True)
     template_map= seq[0]
     map_arr= np.stack([m.data for m in seq], axis=0)
