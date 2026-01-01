@@ -15,28 +15,12 @@ When the solar features are aligned, one particular contaminant pattern covers d
 ## Modules 
 The modules are designed to be user friendly- for implementation by the end user.
 
-### `full_disk_correction.py`: 
-- Applies contaminant correction on full disk images.
-- Requires atleast 10-15 frames for correction.
-- Not advised for synoptic 4k NB03, NB04, NB08 channels.
-- **Methodology:** Aligns line channel images by cross-correlating the solar north limb. Aligns continuum images using sun center parameters `CRPIX` values.
+### `continuum_correction.py`: 
+- Applies contaminant correction on full disk continuum images.
 
-### `roi_contt_correction.py`
-- To apply contamination correction for RoI continuum channel images. 
-- Works best for NB03 and NB04 feature rich images.
-- Requires at least 10-15 full-disk images to work best for roi correction.
-- **Methodology**: Requires 10-15 4k images of the same band. Generates calibration file from 4k images. Applies correction on RoI by cutting the calibration file using `X1`, `Y1`, `NAXIS` values.
-
-### `roi_line_correction.py`
-- To apply contamination correction for RoI continuum channel images. 
-- Works best for NB03 and NB04 feature rich images.
-- Requires at least 10-15 images to work best.
-- **Methodology**: Aligns images by correlating features with the reference frame. Takes each image in the stack as reference, and corrects them individually. Computationally intensive.
-
-### `validation_with_iris.py`
-- Used to validate photometry with IRIS SJI images. 
-- Applicable only for NB03 and NB04 RoI images.
-
+### `line_fulldisk_correction.py`
+- Used to correct line channel full disk images.
+- Uses north limb of the sun for template based co-alignment.
 
 ## Authors
 
