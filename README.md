@@ -18,9 +18,17 @@ The modules are designed to be user friendly- for implementation by the end user
 ### `continuum_correction.py`: 
 - Applies contaminant correction on full disk continuum images.
 
+### `2k_fulldisk_correction.py`
+- Used to correct 2k line channel full disk images.
+- Uses sun-center information for co-alignment.
+- Ensure the first 10 images of the input list are taken within a short time interval.
+
 ### `line_fulldisk_correction.py`
-- Used to correct line channel full disk images.
-- Uses north limb of the sun for template based co-alignment.
+- Uses north limb of the sun for co-alignment.
+- Useful for NB03 and NB04 channel images.
+
+## `scratch.py`
+- Scratchpad for testing code sections.
 
 ## Authors
 
