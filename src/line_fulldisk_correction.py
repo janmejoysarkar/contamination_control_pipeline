@@ -15,16 +15,18 @@ DESCRIPTION
 - Align images by sun-cent information for continua.
 """
 import os
-import sys
 import glob
 import numpy as np
 import multiprocessing
 import astropy.units as u
-from astropy.io import fits
-import matplotlib.pyplot as plt
+from scipy.ndimage import zoom
 from sunpy.map import Map, MapSequence
+from astropy.convolution import convolve, Box2DKernel
 from astropy.coordinates import SkyCoord, SkyOffsetFrame
 from sunkit_image.coalignment import calculate_match_template_shift, apply_shifts
+
+def blur(data, kernel): #blurring function
+    return(convolve(data, Box2DKernel(kernel), normalize_kernel=True))
 
 def get_submap(ref_img):
 	"""
@@ -57,8 +59,12 @@ def makeflat(files):
     aligned_maps = apply_shifts(seq, yshift=shift_yPix * u.pixel, xshift=shift_xPix * u.pixel, clip=False)
     aligned_map_arr= np.stack([m.data for m in aligned_maps], axis=0)
     med= np.median(aligned_map_arr, axis=0)
+    med[med==0]=1
     flat_frame= template_map.data/med
-    return flat_frame
+    flat_frame[flat_frame==0]=1
+    flat_frame=flat_frame/blur(flat_frame, 10) # High pass filtering
+    flat_frame_4k=zoom(flat_frame, 2, order=0) # Nearest neighbor interpolation
+    return flat_frame, flat_frame_4k
 
 def fd_correction(file):
     """
@@ -66,7 +72,10 @@ def fd_correction(file):
     NB03, NB04 and NB08
     """
     m= Map(file)
-    corrected_img_data= m.data/flat_frame
+    if 'enable' in m.meta['BIN_EN']:
+        corrected_img_data= m.data/flat_frame
+    else:
+        corrected_img_data= m.data/flat_frame_4k
     corrected_img_data= np.nan_to_num(corrected_img_data, nan=0.0)
     corrected_img_data[corrected_img_data> 6e4]=0
     corrected_map= Map(corrected_img_data, m.meta)
@@ -76,11 +85,38 @@ def fd_correction(file):
         corrected_map.save(img_savepath, overwrite=True)
         if not QUIET: print('FD saved:', filename)
 
+def roi_correction(file):
+    '''
+    Applies correction to RoI images
+    '''
+    roi_map= Map(file)
+    col, row= roi_map.meta['X1'], roi_map.meta['Y1']
+    s_row, s_col= roi_map.meta['NAXIS1'], roi_map.meta['NAXIS2']
+    roi_flat= flat_frame_4k [row:row+s_row, col-20:col+s_col-20]
+    corrected_roi_data= roi_map.data/roi_flat
+    corrected_roi_data= np.nan_to_num(corrected_roi_data, nan=0.0)
+    corrected_roi_data[corrected_roi_data> 6e4]=0
+    corrected_roi_map= Map(corrected_roi_data, roi_map.meta)
+    if SAVE:
+        filename= roi_map.meta['F_NAME']
+        img_savepath= os.path.join(project_path, f'products/roi/{filename}')
+        corrected_roi_map.save(img_savepath, overwrite=True)
+        if not QUIET: print('ROI saved:', filename)
+
 if __name__=='__main__':
     SAVE= True # Toggle to save corrected image
     QUIET= False
     project_path= os.path.abspath('..')
+    # Filepath for full disk images
     fd_files= sorted(glob.glob(os.path.join(project_path, f'data/raw/full_disk/*.fits'))) # Filepath for full disk images
-    flat_frame= makeflat(fd_files[:15]) # Make flat file. Global variable
+    # Filepath for ROI images
+    roi_files= sorted(glob.glob(os.path.join(project_path, 'data/raw/roi/*.fits')))
+    flat_frame, flat_frame_4k= makeflat(fd_files[:15]) # Make flat file. Global variable
     with multiprocessing.Pool() as pool:
-        pool.map(fd_correction, fd_files)
+        r1= pool.map_async(fd_correction, fd_files)
+        if roi_files: # Check if roi_files is empty. Will run if not empty.
+            r2= pool.map_async(roi_correction, roi_files)
+            r1.get() # get() stops process if error is received. Use wait() for continued run, with errors.
+            r2.get()
+        else:
+            r1.get()
