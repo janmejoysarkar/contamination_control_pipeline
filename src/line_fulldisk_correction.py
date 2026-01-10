@@ -20,7 +20,9 @@ import numpy as np
 import multiprocessing
 import astropy.units as u
 from scipy.ndimage import zoom
+import matplotlib.pyplot as plt
 from sunpy.map import Map, MapSequence
+from matplotlib.widgets import RectangleSelector
 from astropy.convolution import convolve, Box2DKernel
 from astropy.coordinates import SkyCoord, SkyOffsetFrame
 from sunkit_image.coalignment import calculate_match_template_shift, apply_shifts
@@ -44,12 +46,39 @@ def get_submap(ref_img):
 	ref_submap = ref_img.submap(rectangle) #bottom_left, top_right=top_right)
 	return ref_submap
 
+def select_roi_with_mouse(sunpy_map, cmap=None, norm=None):
+    """
+    DESCRIPTION: To select RoI template.
+    INPUT: Sunpy map.
+    RETURNS: Sunpy submap. 
+    """
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection=sunpy_map)
+    ax.set_title("Select ROI (click and drag) then close the window")
+    sunpy_map.plot(axes=ax)
+    coords = []
+    def onselect(eclick, erelease):
+        coords.append((eclick.xdata, eclick.ydata, erelease.xdata, erelease.ydata))
+
+    toggle_selector = RectangleSelector(ax, onselect, useblit=True,
+                      button=[1], minspanx=5, minspany=5, spancoords='pixels',
+                      interactive=True)
+    plt.show()
+    if not coords:
+        raise RuntimeError("ROI selection cancelled or failed.")
+    x1, y1, x2, y2 = coords[0]
+    bottom_left = (min(x1, x2), min(y1, y2)) * u.pix
+    top_right = (max(x1, x2), max(y1, y2)) * u.pix
+    submap = sunpy_map.submap(bottom_left=bottom_left, top_right=top_right)
+    return submap
+
 def makeflat(files):
     '''
     Give a list of images spanning not more than 15-20 mins in time.
     Ideal for cleaning 2k NB03 images.
     '''
     template_map= Map(files[0])
+    #ref_submap= select_roi_with_mouse(template_map)
     ref_submap = get_submap(template_map)
     ref_cdel=ref_submap.meta['CDELT1']
     seq = Map(files, sequence=True)
@@ -63,7 +92,7 @@ def makeflat(files):
     flat_frame= template_map.data/med
     flat_frame[flat_frame==0]=1
     flat_frame=flat_frame/blur(flat_frame, 10) # High pass filtering
-    flat_frame_4k=zoom(flat_frame, 2, order=0) # Nearest neighbor interpolation
+    flat_frame_4k=zoom(flat_frame, 2, order=3) # Nearest neighbor interpolation
     return flat_frame, flat_frame_4k
 
 def fd_correction(file):
