@@ -17,6 +17,7 @@ import numpy as np
 import multiprocessing
 import astropy.units as u
 from sunpy.map import Map
+from astropy.io import fits
 from sunkit_image.coalignment import apply_shifts
 
 def makeflat(files):
@@ -38,6 +39,10 @@ def makeflat(files):
     med[med==0]=1
     flat_frame= raw_med/med
     flat_frame[flat_frame==0]=1
+    if SAVE:
+        filename= 'flatfield.fits'
+        flat_savepath= os.path.join(project_path, f'data/interim/{filename}')
+        fits.writeto(flat_savepath, flat_frame, header=template_map.meta, overwrite=True)
     return flat_frame
 
 def fd_correction(file):

@@ -92,7 +92,10 @@ def makeflat(files):
     flat_frame= template_map.data/med
     flat_frame[flat_frame==0]=1
     flat_frame=flat_frame/blur(flat_frame, 10) # High pass filtering
-    flat_frame_4k=zoom(flat_frame, 2, order=3) # Nearest neighbor interpolation
+    if 'enable' in template_map.meta['BIN_EN']:
+        flat_frame_4k=zoom(flat_frame, 2, order=3) # Nearest neighbor interpolation
+    else:
+        flat_frame_4k=flat_frame
     return flat_frame, flat_frame_4k
 
 def fd_correction(file):
