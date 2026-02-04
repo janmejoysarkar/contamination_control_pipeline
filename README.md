@@ -12,47 +12,78 @@ The Aditya-L1 satellite has a jitter about its three axes. Jitter about the Pitc
 
 When the solar features are aligned, one particular contaminant pattern covers different regions of the Sun. This is exploited to generate a flat-field calibration file to remove the contaminants from each un aligned solar image.
 
+
 ## Modules 
 The modules are designed to be user friendly- for implementation by the end user.
 
 ### `continuum_correction.py`: 
-- Applies contaminant correction on full disk continuum images.
+- Applies contaminant correction on full disk and RoI continuum images.
+- **Requirements:** 2 days synoptic full-disk and required RoI images.
 
-### `2k_fulldisk_correction.py`
-- Used to correct 2k line channel full disk images.
-- Uses sun-center information for co-alignment.
-- Ensure the first 10 images of the input list are taken within a short time interval.
-
-### `line_fulldisk_correction.py`
+### `line_correction.py`:
 - Uses north limb of the sun for co-alignment.
+- Uses 2k NB03 images, upscales the flat fields and applies correction on RoI and fulldisk images.
 - Useful for NB03 and NB04 channel images.
+- **Requirements:** 2 days synoptic full-disk, or 10-20 2k full disk NB03 images, and required RoI images.
+
+### `roi_line_correction.py`:
+- Uses a user-defined template for alignment of RoI images.
+- Suitable for target specific contamination correction.
+- Suitable for RoI NB03, NB04 and NB08 images.
+- **Requirements:** RoI images of a particular target.
 
 ## `scratch.py`
 - Scratchpad for testing code sections.
 
-## Authors
-
-- [@janmejoysarkar](https://github.com/janmejoysarkar)
-
-## Acknowledgements
-
- - [ISRO, Aditya-L1](https://www.isro.gov.in/Aditya_L1.html)
 ## Screenshots
 
 ![Correction of contaminants on SUIT NB05 filter](README_files/Figure_1.png)
 
 
 ## Usage/Examples
-SUIT image files are to be symlinked or placed at the specific folders based on the file type.
+SUIT image files are to be symlinked or placed at the specific folders based on the file type. Please ensure this folder structure is maintained before using the modules. The data files can be placed as symlinks in the specific folders.
 
-Folder structure for data
+Please ensure the following folder structure.
+```
+.
+├── data
+│   ├── external
+│   ├── interim
+│   ├── processed
+│   └── raw
+│       ├── full_disk 
+│       └── roi 
+├── products
+│   ├── full_disk 
+│   └── roi
+├── README_files
+├── README.md
+├── reports
+└── src
+    ├── archive
+    ├── continuum_correction.py
+    ├── line_correction.py
+    ├── roi_line_correction.py
+    └── scratch.py
+```
 
-    ./data/raw/roi
-    ./data/raw/full_disk
+Note that the data should be placed as follows:
+```
+./data/raw/full_disk # Full disk images
+./data/raw/roi # RoI images
+```
+The data will be saved as follows:
+```
+./products/full_disk # Full disk images
+./products/roi # RoI images
 
-Folder structure for products
+```
+## Authors
 
-    ./products/roi
-    ./products/full_disk
+- [@janmejoysarkar](https://github.com/janmejoysarkar)
 
+## Acknowledgements
 
+ - [SUIT-POC, IUCAA](https://suit.iucaa.in)
+ - [SUIT-team, MPS](https://mps.mpg.de)
+ - [Aditya-L1, ISRO](https://www.isro.gov.in/Aditya_L1.html)
