@@ -1,4 +1,4 @@
-data/*
-products/*
+data/*/*.fits
+products/*.fits
 references/*
 reports/*
