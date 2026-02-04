@@ -32,7 +32,7 @@ The modules are designed to be user friendly- for implementation by the end user
 - Suitable for RoI NB03, NB04 and NB08 images.
 - **Requirements:** RoI images of a particular target.
 
-## `scratch.py`
+### `scratch.py`
 - Scratchpad for testing code sections.
 
 ## Screenshots
