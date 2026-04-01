@@ -92,7 +92,7 @@ def makeflat(files):
     med[med==0]=1
     flat_frame= template_map.data/med
     flat_frame[flat_frame==0]=1
-    flat_frame=flat_frame/blur(flat_frame, 10) # High pass filtering
+    #flat_frame=flat_frame/blur(flat_frame, 10) # High pass filtering
     if 'enable' in template_map.meta['BIN_EN']:
         flat_frame_4k=zoom(flat_frame, 2, order=3) # Nearest neighbor interpolation
     else:
@@ -100,7 +100,7 @@ def makeflat(files):
     if SAVE_FLAT:
         img_savepath= os.path.join(project_path, f'data/interim/flat.fits')
         fits.writeto(img_savepath, flat_frame_4k, overwrite=True)
-        if not QUIET: print('FD saved:', filename)
+        if not QUIET: print('FLAT_FRAME saved:')
     return flat_frame, flat_frame_4k
 
 def fd_correction(file):
@@ -142,6 +142,7 @@ def roi_correction(file):
 
 if __name__=='__main__':
     SAVE= True # Toggle to save corrected image
+    SAVE_FLAT= True # Toggle to save corrected image
     QUIET= False
     project_path= os.path.abspath('..')
     # Filepath for full disk images
