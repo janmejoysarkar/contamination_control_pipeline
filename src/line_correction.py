@@ -19,6 +19,7 @@ import glob
 import numpy as np
 import multiprocessing
 import astropy.units as u
+from astropy.io import fits
 from scipy.ndimage import zoom
 import matplotlib.pyplot as plt
 from sunpy.map import Map, MapSequence
@@ -96,6 +97,10 @@ def makeflat(files):
         flat_frame_4k=zoom(flat_frame, 2, order=3) # Nearest neighbor interpolation
     else:
         flat_frame_4k=flat_frame
+    if SAVE_FLAT:
+        img_savepath= os.path.join(project_path, f'data/interim/flat.fits')
+        fits.writeto(img_savepath, flat_frame_4k, overwrite=True)
+        if not QUIET: print('FD saved:', filename)
     return flat_frame, flat_frame_4k
 
 def fd_correction(file):
