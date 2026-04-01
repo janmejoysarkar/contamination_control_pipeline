@@ -73,7 +73,7 @@ def select_roi_with_mouse(sunpy_map, cmap=None, norm=None):
     submap = sunpy_map.submap(bottom_left=bottom_left, top_right=top_right)
     return submap
 
-def makeflat(files):
+def alignmaps(files):
     '''
     Give a list of images spanning not more than 15-20 mins in time.
     Ideal for cleaning 2k NB03 images.
@@ -87,20 +87,25 @@ def makeflat(files):
     shift_xPix = align_shift['x'].value / ref_cdel * -1
     shift_yPix = align_shift['y'].value / ref_cdel * -1
     aligned_maps = apply_shifts(seq, yshift=shift_yPix * u.pixel, xshift=shift_xPix * u.pixel, clip=False)
+    return aligned_maps
+
+def makeflat(aligned_maps):
     aligned_map_arr= np.stack([m.data for m in aligned_maps], axis=0)
     med= np.median(aligned_map_arr, axis=0)
     med[med==0]=1
-    flat_frame= template_map.data/med
+    flat_frame= aligned_maps[0].data/med
     flat_frame[flat_frame==0]=1
-    #flat_frame=flat_frame/blur(flat_frame, 10) # High pass filtering
-    if 'enable' in template_map.meta['BIN_EN']:
+    flat_frame=flat_frame/blur(flat_frame, 25) # High pass filtering
+    #if binning is enabled, 2k flat frame will be interpolated to make 4k flat
+    #else 4k files will be used to make 4k flat field.
+    if 'enable' in aligned_maps[0].meta['BIN_EN']:
         flat_frame_4k=zoom(flat_frame, 2, order=3) # Nearest neighbor interpolation
     else:
         flat_frame_4k=flat_frame
     if SAVE_FLAT:
         img_savepath= os.path.join(project_path, f'data/interim/flat.fits')
         fits.writeto(img_savepath, flat_frame_4k, overwrite=True)
-        if not QUIET: print('FLAT_FRAME saved:')
+        if not QUIET: print('FLAT_FRAME saved')
     return flat_frame, flat_frame_4k
 
 def fd_correction(file):
@@ -149,7 +154,8 @@ if __name__=='__main__':
     fd_files= sorted(glob.glob(os.path.join(project_path, f'data/raw/full_disk/*.fits'))) # Filepath for full disk images
     # Filepath for ROI images
     roi_files= sorted(glob.glob(os.path.join(project_path, 'data/raw/roi/*.fits')))
-    flat_frame, flat_frame_4k= makeflat(fd_files[:15]) # Make flat file. Global variable
+    aligned_maps= alignmaps(fd_files[:15]) # Align maps
+    flat_frame, flat_frame_4k= makeflat(aligned_maps) # Make flat file. Global variable
     with multiprocessing.Pool() as pool:
         r1= pool.map_async(fd_correction, fd_files)
         if roi_files: # Check if roi_files is empty. Will run if not empty.
