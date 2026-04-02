@@ -23,11 +23,12 @@ from astropy.io import fits
 from scipy.ndimage import zoom
 import matplotlib.pyplot as plt
 from datetime import datetime, UTC
+from sunpy.map import Map, MapSequence
 from matplotlib.widgets import RectangleSelector
 from astropy.convolution import convolve, Box2DKernel
 from astropy.coordinates import SkyCoord, SkyOffsetFrame
-from sunpy.map import Map, MapSequence, coordinate_is_on_solar_disk
 from sunkit_image.coalignment import calculate_match_template_shift, apply_shifts
+from sunpy.map.maputils import all_coordinates_from_map, coordinate_is_on_solar_disk
 
 def blur(data, kernel): #blurring function
     return(convolve(data, Box2DKernel(kernel), normalize_kernel=True))
@@ -98,6 +99,9 @@ def makeflat(aligned_maps):
     flat_frame= aligned_maps[0].data/med
     flat_frame[flat_frame==0]=1
     flat_frame=flat_frame/blur(flat_frame, 25) # High pass filtering
+    hpc_coords= all_coordinates_from_map(aligned_maps[0])
+    mask= np.invert(coordinate_is_on_solar_disk(hpc_coords))
+    flat_frame[mask]=1
     header=fits.Header()
     header['NAXIS1']= aligned_maps[0].meta['NAXIS1']
     header['NAXIS2']= aligned_maps[0].meta['NAXIS2']
