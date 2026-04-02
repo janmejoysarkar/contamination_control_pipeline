@@ -22,10 +22,11 @@ import astropy.units as u
 from astropy.io import fits
 from scipy.ndimage import zoom
 import matplotlib.pyplot as plt
-from sunpy.map import Map, MapSequence
+from datetime import datetime, UTC
 from matplotlib.widgets import RectangleSelector
 from astropy.convolution import convolve, Box2DKernel
 from astropy.coordinates import SkyCoord, SkyOffsetFrame
+from sunpy.map import Map, MapSequence, coordinate_is_on_solar_disk
 from sunkit_image.coalignment import calculate_match_template_shift, apply_shifts
 
 def blur(data, kernel): #blurring function
@@ -92,10 +93,18 @@ def alignmaps(files):
 def makeflat(aligned_maps):
     aligned_map_arr= np.stack([m.data for m in aligned_maps], axis=0)
     med= np.median(aligned_map_arr, axis=0)
+    med= blur(med, 11)
     med[med==0]=1
     flat_frame= aligned_maps[0].data/med
     flat_frame[flat_frame==0]=1
     flat_frame=flat_frame/blur(flat_frame, 25) # High pass filtering
+    header=fits.Header()
+    header['NAXIS1']= aligned_maps[0].meta['NAXIS1']
+    header['NAXIS2']= aligned_maps[0].meta['NAXIS2']
+    header['FTR_NAME']= aligned_maps[0].meta['FTR_NAME']
+    header['T_OBS']= aligned_maps[0].meta['T_OBS']
+    header['WAVELNTH']= aligned_maps[0].meta['WAVELNTH']
+    header['GRT_DT']= str(datetime.now(UTC))
     #if binning is enabled, 2k flat frame will be interpolated to make 4k flat
     #else 4k files will be used to make 4k flat field.
     if 'enable' in aligned_maps[0].meta['BIN_EN']:
@@ -104,7 +113,7 @@ def makeflat(aligned_maps):
         flat_frame_4k=flat_frame
     if SAVE_FLAT:
         img_savepath= os.path.join(project_path, f'data/interim/flat.fits')
-        fits.writeto(img_savepath, flat_frame_4k, overwrite=True)
+        fits.writeto(img_savepath, flat_frame_4k, header, overwrite=True)
         if not QUIET: print('FLAT_FRAME saved')
     return flat_frame, flat_frame_4k
 
@@ -152,9 +161,10 @@ if __name__=='__main__':
     project_path= os.path.abspath('..')
     # Filepath for full disk images
     fd_files= sorted(glob.glob(os.path.join(project_path, f'data/raw/full_disk/*.fits'))) # Filepath for full disk images
+    calib_files= [fd_file for fd_file in fd_files if '0F1NB' in os.path.basename(fd_file)]
     # Filepath for ROI images
     roi_files= sorted(glob.glob(os.path.join(project_path, 'data/raw/roi/*.fits')))
-    aligned_maps= alignmaps(fd_files[:15]) # Align maps
+    aligned_maps= alignmaps(calib_files) # Align maps
     flat_frame, flat_frame_4k= makeflat(aligned_maps) # Make flat file. Global variable
     with multiprocessing.Pool() as pool:
         r1= pool.map_async(fd_correction, fd_files)
