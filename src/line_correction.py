@@ -99,9 +99,6 @@ def makeflat(aligned_maps):
     flat_frame= aligned_maps[0].data/med
     flat_frame[flat_frame==0]=1
     flat_frame=flat_frame/blur(flat_frame, 25) # High pass filtering
-    hpc_coords= all_coordinates_from_map(aligned_maps[0])
-    mask= np.invert(coordinate_is_on_solar_disk(hpc_coords))
-    flat_frame[mask]=1
     header=fits.Header()
     header['NAXIS1']= aligned_maps[0].meta['NAXIS1']
     header['NAXIS2']= aligned_maps[0].meta['NAXIS2']
@@ -127,6 +124,9 @@ def fd_correction(file):
     NB03, NB04 and NB08
     """
     m= Map(file)
+    hpc_coords= all_coordinates_from_map(m)
+    mask= np.invert(coordinate_is_on_solar_disk(hpc_coords))
+    flat_frame[mask]=1
     if 'enable' in m.meta['BIN_EN']:
         corrected_img_data= m.data/flat_frame
     else:

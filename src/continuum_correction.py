@@ -10,7 +10,6 @@ DESCRIPTION
 SUIT pipeline implementation of contamination correction.
 Made for continuum channel images only.
 """
-
 import os
 import glob
 import numpy as np
@@ -18,9 +17,15 @@ import multiprocessing
 import astropy.units as u
 from sunpy.map import Map
 from astropy.io import fits
+from datetime import datetime, UTC
 from sunkit_image.coalignment import apply_shifts
+from astropy.convolution import convolve, Box2DKernel
+from sunpy.map.maputils import all_coordinates_from_map, coordinate_is_on_solar_disk
 
-def makeflat(files):
+def blur(data, kernel): #blurring function
+    return(convolve(data, Box2DKernel(kernel), normalize_kernel=True))
+
+def alignmaps(files):
     '''
     Makes flat frame from a series of images
     '''
@@ -29,20 +34,30 @@ def makeflat(files):
         files= files[:10]
     seq = Map(files, sequence=True)
     template_map= seq[0]
-    map_arr= np.stack([m.data for m in seq], axis=0)
-    raw_med= np.median(map_arr, axis=0)
     x_arry=[template_map.meta['CRPIX1']-m.meta['CRPIX1'] for i, m in enumerate(seq)]
     y_arry=[template_map.meta['CRPIX2']-m.meta['CRPIX2'] for i, m in enumerate(seq)]
     aligned_maps = apply_shifts(seq, yshift= y_arry * u.pixel, xshift=x_arry * u.pixel, clip=False)
+    return aligned_maps, seq
+
+def makeflat(aligned_maps, seq):
+    map_arr= np.stack([m.data for m in seq], axis=0)
+    raw_med= np.median(map_arr, axis=0)
     aligned_imgs= np.stack([m.data for m in aligned_maps], axis=0)
     med= np.median(aligned_imgs, axis=0)
     med[med==0]=1
     flat_frame= raw_med/med
+    flat_frame=flat_frame/blur(flat_frame, 25) # High pass filtering
     flat_frame[flat_frame==0]=1
+    header=fits.Header()
+    header['NAXIS1']= aligned_maps[0].meta['NAXIS1']
+    header['NAXIS2']= aligned_maps[0].meta['NAXIS2']
+    header['FTR_NAME']= aligned_maps[0].meta['FTR_NAME']
+    header['T_OBS']= aligned_maps[0].meta['T_OBS']
+    header['WAVELNTH']= aligned_maps[0].meta['WAVELNTH']
+    header['GRT_DT']= str(datetime.now(UTC))
     if SAVE:
-        filename= 'flatfield.fits'
-        flat_savepath= os.path.join(project_path, f'data/interim/{filename}')
-        fits.writeto(flat_savepath, flat_frame, overwrite=True)
+        flat_savepath= os.path.join(project_path, f'data/interim/flat.fits')
+        fits.writeto(flat_savepath, flat_frame, header, overwrite=True)
     return flat_frame
 
 def fd_correction(file):
@@ -50,6 +65,9 @@ def fd_correction(file):
     Applies correction using available image
     '''
     m= Map(file)
+    hpc_coords= all_coordinates_from_map(m)
+    mask= np.invert(coordinate_is_on_solar_disk(hpc_coords))
+    flat_frame[mask]=1
     corrected_img_data= m.data/flat_frame
     corrected_img_data= np.nan_to_num(corrected_img_data, nan=0.0)
     corrected_img_data[corrected_img_data> 6e4]=0
@@ -86,7 +104,8 @@ if __name__=='__main__':
     fd_files= sorted(glob.glob(os.path.join(project_path, 'data/raw/full_disk/*.fits'))) 
     # Filepath for ROI images
     roi_files= sorted(glob.glob(os.path.join(project_path, 'data/raw/roi/*.fits')))
-    flat_frame= makeflat(fd_files) # Make flat file. Global variable
+    aligned_maps, unaligned_maps= alignmaps(fd_files) # Align maps
+    flat_frame= makeflat(aligned_maps, unaligned_maps) # Make flat file. Global variable
     with multiprocessing.Pool() as pool:
         r1= pool.map_async(fd_correction, fd_files)
         if roi_files: # Check if roi_files is empty. Will run if not empty.
