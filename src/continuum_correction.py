@@ -46,7 +46,6 @@ def makeflat(aligned_maps, seq):
     med= np.median(aligned_imgs, axis=0)
     med[med==0]=1
     flat_frame= raw_med/med
-    flat_frame=flat_frame/blur(flat_frame, 25) # High pass filtering
     flat_frame[flat_frame==0]=1
     header=fits.Header()
     header['NAXIS1']= aligned_maps[0].meta['NAXIS1']
@@ -70,7 +69,6 @@ def fd_correction(file):
     flat_frame[mask]=1
     corrected_img_data= m.data/flat_frame
     corrected_img_data= np.nan_to_num(corrected_img_data, nan=0.0)
-    corrected_img_data[corrected_img_data> 6e4]=0
     corrected_map= Map(corrected_img_data, m.meta)
     if SAVE:
         filename= m.meta['F_NAME']
@@ -88,7 +86,6 @@ def roi_correction(file):
     roi_flat= flat_frame [row:row+s_row, col-20:col+s_col-20]
     corrected_roi_data= roi_map.data/roi_flat
     corrected_roi_data= np.nan_to_num(corrected_roi_data, nan=0.0)
-    corrected_roi_data[corrected_roi_data> 6e4]=0
     corrected_roi_map= Map(corrected_roi_data, roi_map.meta)
     if SAVE:
         filename= roi_map.meta['F_NAME']
