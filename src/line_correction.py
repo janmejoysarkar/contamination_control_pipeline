@@ -132,7 +132,6 @@ def fd_correction(file):
     else:
         corrected_img_data= m.data/flat_frame_4k
     corrected_img_data= np.nan_to_num(corrected_img_data, nan=0.0)
-    corrected_img_data[corrected_img_data> 6e4]=0
     corrected_map= Map(corrected_img_data, m.meta)
     if SAVE:
         filename= m.meta['F_NAME']
