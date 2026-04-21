@@ -22,9 +22,10 @@ The modules are designed to be user friendly- for implementation by the end user
 
 ### `line_correction.py`:
 - Uses north limb of the sun for co-alignment.
-- Uses 2k NB03 images, upscales the flat fields and applies correction on RoI and fulldisk images.
-- Useful for NB03 and NB04 channel images.
-- **Requirements:** 2 days synoptic full-disk, or 10-20 2k full disk NB03 images, and required RoI images.
+- Required for contamination correction of NB03, NB04 and NB08 line channel images.
+- Uses data from contamination correction observation sequence.
+- 2k NB03 images can also be used. It will upscale the flat fields and apply correction on RoI and fulldisk images.
+- **Requirements:** 15 contamination correction images, or 15 2k full disk NB03 images (for NB03 correction only).
 
 ### `roi_line_correction.py`:
 - Uses a user-defined template for alignment of RoI images.
