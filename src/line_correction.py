@@ -149,7 +149,6 @@ def roi_correction(file):
     roi_flat= flat_frame_4k [row:row+s_row, col-20:col+s_col-20]
     corrected_roi_data= roi_map.data/roi_flat
     corrected_roi_data= np.nan_to_num(corrected_roi_data, nan=0.0)
-    corrected_roi_data[corrected_roi_data> 6e4]=0
     corrected_roi_map= Map(corrected_roi_data, roi_map.meta)
     if SAVE:
         filename= roi_map.meta['F_NAME']
@@ -165,6 +164,8 @@ if __name__=='__main__':
     # Filepath for full disk images
     fd_files= sorted(glob.glob(os.path.join(project_path, f'data/raw/full_disk/*.fits'))) # Filepath for full disk images
     calib_files= [fd_file for fd_file in fd_files if '0F1NB' in os.path.basename(fd_file)]
+    if not calib_files:
+        calib_files= [fd_file for fd_file in fd_files if '2NB' in os.path.basename(fd_file)] # 2k files
     # Filepath for ROI images
     roi_files= sorted(glob.glob(os.path.join(project_path, 'data/raw/roi/*.fits')))
     aligned_maps= alignmaps(calib_files) # Align maps
