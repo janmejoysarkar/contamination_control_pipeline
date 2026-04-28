@@ -46,6 +46,7 @@ def makeflat(aligned_maps, seq):
     med= np.median(aligned_imgs, axis=0)
     med[med==0]=1
     flat_frame= raw_med/med
+    flat_frame=flat_frame/blur(flat_frame, 25) # High pass filtering
     flat_frame[flat_frame==0]=1
     header=fits.Header()
     header['NAXIS1']= aligned_maps[0].meta['NAXIS1']

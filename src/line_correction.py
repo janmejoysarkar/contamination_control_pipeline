@@ -94,7 +94,7 @@ def alignmaps(files):
 def makeflat(aligned_maps):
     aligned_map_arr= np.stack([m.data for m in aligned_maps], axis=0)
     med= np.median(aligned_map_arr, axis=0)
-    med= blur(med, 11)
+    med= blur(med, 11) # removing high freq structures
     med[med==0]=1
     flat_frame= aligned_maps[0].data/med
     flat_frame[flat_frame==0]=1
